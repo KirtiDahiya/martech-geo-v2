@@ -17,7 +17,7 @@ logger = logging.getLogger("brand-context-processor")
 INPUT_BUCKET = os.environ.get("INPUT_BUCKET", "geo-inputs")
 INPUT_FILE = os.environ.get("INPUT_FILE", "client_001/run_001/brand_context.md")
 
-OUTPUT_BUCKET = os.environ.get("OUTPUT_BUCKET", "geo-outputs")
+OUTPUT_BUCKET = os.environ.get("OUTPUT_BUCKET", "geo-output")
 OUTPUT_FILE = os.environ.get("OUTPUT_FILE", "client_001/run_001/output.json")
 
 
