@@ -16,9 +16,10 @@ GCS_INPUT_BUCKET = os.environ.get("GCS_INPUT_BUCKET", "geo-inputs")
 DEFAULT_CLIENT_ID = os.environ.get("DEFAULT_CLIENT_ID", "client_001")
 
 def make_run_id() -> str:
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    suffix = uuid.uuid4().hex[:8]
-    return f"run_{timestamp}_{suffix}"
+    return "run_001"
+    # timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    # suffix = uuid.uuid4().hex[:8]
+    # return f"run_{timestamp}_{suffix}"
 
 
 def clean_lines(value: str) -> list[str]:
