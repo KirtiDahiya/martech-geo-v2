@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GEO Brand Context Intake</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 950px;
+      margin: 40px auto;
+      line-height: 1.5;
+      color: #222;
+    }
+    h1 { margin-bottom: 6px; }
+    .subtitle { color: #666; margin-bottom: 24px; }
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 16px;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    textarea { min-height: 90px; }
+    button {
+      margin-top: 24px;
+      padding: 12px 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 15px;
+      background: #111827;
+      color: white;
+    }
+    .hint {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+    code {
+      background: #f3f4f6;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>GEO Brand Context Intake</h1>
+  <p class="subtitle">
+    Submit required fields to create <code>brand_context.md</code> in the GCP input bucket.
+    The generated markdown will not include <code>client_id</code> or <code>run_id</code>.
+  </p>
+
+  <div class="card">
+    <form method="post" action="/brand-context">
+      <label>Client ID</label>
+      <input name="client_id" value="client_001">
+      <div class="hint">Used only for GCS folder path. Not written inside brand_context.md.</div>
+
+      <label>Brand Name *</label>
+      <input name="brand_name" required value="ABC Mobility Components">
+
+      <label>Website URL *</label>
+      <input name="website_url" required value="https://www.abcmobilitycomponents.com">
+
+      <label>Industry *</label>
+      <input name="industry" required value="Automotive Components Manufacturing">
+
+      <label>Description *</label>
+      <textarea name="description" required>ABC Mobility Components is an automotive component manufacturer focused on body-in-white assemblies, sheet metal stampings, welded sub-assemblies, chassis structures, and EV-related structural components for passenger vehicle OEMs and Tier-1 automotive customers.</textarea>
+
+      <label>Competitor List *</label>
+      <textarea name="competitor_list" required>JBM Group
+Autocomp Corporation
+Gestamp India
+Magna India
+Bharat Forge auto components division</textarea>
+
+      <label>Aliases *</label>
+      <textarea name="aliases" required>ABC Mobility Components
+ABC Mobility
+ABC Components
+ABC Auto Components
+ABCMC</textarea>
+      <div class="hint">Alternate brand names that count as a brand mention in Stage 04.</div>
+
+      <label>Regions *</label>
+      <textarea name="regions" required>India
+IN
+United States
+US
+U.S.
+USA
+Europe
+EU
+Japan
+ASEAN
+Middle East
+UAE</textarea>
+      <div class="hint">Free-text region labels that downstream code can normalise through a Region enum.</div>
+
+      <button type="submit">Create brand_context.md</button>
+    </form>
+  </div>
+</body>
+</html>
