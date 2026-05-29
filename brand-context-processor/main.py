@@ -256,20 +256,30 @@ def process_brand_context(markdown_text: str) -> dict:
 
 def call_openai_llm(brand_context_md: str, deterministic_output: dict) -> dict:
     """
-    Calls OpenAI LLM and returns GEO analysis.
+    Calls OpenAI LLM and returns success/failure object.
 
-    OPENAI_API_KEY should be supplied through Cloud Run Job secret env var.
+    This function does not crash the whole job.
+    If OpenAI fails, the error is returned inside output.json.
     """
 
     if not OPENAI_API_KEY:
-        raise RuntimeError(
-            "OPENAI_API_KEY is not available. "
-            "Attach it to the Cloud Run Job from Secret Manager."
-        )
+        logger.error("LLM_CALL_FAILED: OPENAI_API_KEY missing from environment")
 
-    client = OpenAI(api_key=OPENAI_API_KEY)
+        return {
+            "provider": "openai",
+            "model": OPENAI_MODEL,
+            "status": "FAILED",
+            "generated_at": utc_now(),
+            "error_type": "MISSING_OPENAI_API_KEY",
+            "error": "OPENAI_API_KEY is not available in Cloud Run Job environment.",
+            "response": None,
+            "usage": None,
+        }
 
-    prompt = f"""
+    try:
+        client = OpenAI(api_key=OPENAI_API_KEY)
+
+        prompt = f"""
 You are a Generative Engine Optimization analyst.
 
 Use the brand context and deterministic parsed output below.
@@ -292,40 +302,63 @@ Deterministic Parsed Output:
 {json.dumps(deterministic_output, indent=2, ensure_ascii=False)}
 """
 
-    logger.info("Calling OpenAI model: %s", OPENAI_MODEL)
+        logger.info("LLM_CALL_STARTED provider=openai model=%s", OPENAI_MODEL)
 
-    response = client.chat.completions.create(
-        model=OPENAI_MODEL,
-        messages=[
-            {
-                "role": "system",
-                "content": "You are a practical GEO analyst. Produce clear structured analysis.",
-            },
-            {
-                "role": "user",
-                "content": prompt,
-            },
-        ],
-        temperature=0.2,
-    )
+        response = client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a practical GEO analyst. Produce clear structured analysis.",
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+            temperature=0.2,
+        )
 
-    response_text = response.choices[0].message.content
+        response_text = response.choices[0].message.content
 
-    usage = None
-    if getattr(response, "usage", None):
-        usage = {
-            "prompt_tokens": getattr(response.usage, "prompt_tokens", None),
-            "completion_tokens": getattr(response.usage, "completion_tokens", None),
-            "total_tokens": getattr(response.usage, "total_tokens", None),
+        usage = None
+        if getattr(response, "usage", None):
+            usage = {
+                "prompt_tokens": getattr(response.usage, "prompt_tokens", None),
+                "completion_tokens": getattr(response.usage, "completion_tokens", None),
+                "total_tokens": getattr(response.usage, "total_tokens", None),
+            }
+
+        logger.info(
+            "LLM_CALL_SUCCESS provider=openai model=%s total_tokens=%s",
+            OPENAI_MODEL,
+            usage.get("total_tokens") if usage else None,
+        )
+
+        return {
+            "provider": "openai",
+            "model": OPENAI_MODEL,
+            "status": "SUCCESS",
+            "generated_at": utc_now(),
+            "error_type": None,
+            "error": None,
+            "response": response_text,
+            "usage": usage,
         }
 
-    return {
-        "provider": "openai",
-        "model": OPENAI_MODEL,
-        "generated_at": utc_now(),
-        "response": response_text,
-        "usage": usage,
-    }
+    except Exception as exc:
+        logger.exception("LLM_CALL_FAILED provider=openai model=%s", OPENAI_MODEL)
+
+        return {
+            "provider": "openai",
+            "model": OPENAI_MODEL,
+            "status": "FAILED",
+            "generated_at": utc_now(),
+            "error_type": exc.__class__.__name__,
+            "error": str(exc),
+            "response": None,
+            "usage": None,
+        }
 
 
 # --------------------------------------------------
@@ -343,18 +376,24 @@ def main() -> None:
     # 1. Read brand_context.md
     markdown_text = read_gcs_text(INPUT_BUCKET, INPUT_FILE)
 
-    # 2. Deterministic parsing
+    # 2. Deterministic processing
     deterministic_output = process_brand_context(markdown_text)
 
-    # 3. LLM analysis
+    # 3. LLM processing
     llm_output = call_openai_llm(
         brand_context_md=markdown_text,
         deterministic_output=deterministic_output,
     )
 
-    # 4. Final client-visible output
+    llm_api_worked = (
+        llm_output.get("status") == "SUCCESS"
+        and bool(llm_output.get("response"))
+    )
+
+    # 4. Final output payload
     output_payload = {
-        "processing_status": "SUCCESS",
+        "processing_status": "SUCCESS" if llm_api_worked else "SUCCESS_WITH_LLM_FAILURE",
+        "llm_api_worked": llm_api_worked,
         "generated_at": utc_now(),
         "input": {
             "bucket": INPUT_BUCKET,
@@ -367,23 +406,19 @@ def main() -> None:
             "gcs_uri": f"gs://{OUTPUT_BUCKET}/{OUTPUT_FILE}",
         },
         "deterministic_output": deterministic_output,
-        "llm_output": {
-            "provider": llm_output["provider"],
-            "model": llm_output["model"],
-            "generated_at": llm_output["generated_at"],
-            "response": llm_output["response"],
-            "usage": llm_output["usage"],
-        },
+        "llm_output": llm_output,
     }
 
     # 5. Write output.json
     write_gcs_json(OUTPUT_BUCKET, OUTPUT_FILE, output_payload)
 
     logger.info("Brand context processor completed successfully")
+    logger.info("llm_api_worked=%s", llm_api_worked)
 
 
 if __name__ == "__main__":
     main()
+
 
 # import json
 # import logging
